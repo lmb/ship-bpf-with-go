@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"syscall"
+	"time"
 )
 
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go counter counter.c -- -I./include -nostdinc -O3
@@ -9,6 +11,36 @@ import (
 func main() {
 	const SO_ATTACH_BPF = 50
 	const loopback = 1
+
+	specs, err := newCounterSpecs()
+	if err != nil {
+		panic(err)
+	}
+
+	objs, err := specs.Load(nil)
+	if err != nil {
+		panic(err)
+	}
+	defer objs.Close()
+
+	sock, err := openRawSock(loopback)
+	if err != nil {
+		panic(err)
+	}
+	defer syscall.Close(sock)
+
+	if err := syscall.SetsockoptInt(sock, syscall.SOL_SOCKET, SO_ATTACH_BPF, objs.ProgramCountPackets.FD()); err != nil {
+		panic(err)
+	}
+
+	for range time.Tick(time.Second) {
+		var count uint64
+		if err := objs.MapPackets.Lookup(uint32(0), &count); err != nil {
+			panic(err)
+		}
+
+		fmt.Println("Saw", count, "packets")
+	}
 }
 
 func openRawSock(index int) (int, error) {
