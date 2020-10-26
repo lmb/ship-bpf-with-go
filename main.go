@@ -4,6 +4,8 @@ import (
 	"syscall"
 )
 
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go counter counter.c -- -I./include -nostdinc -O3
+
 func main() {
 	const SO_ATTACH_BPF = 50
 	const loopback = 1
