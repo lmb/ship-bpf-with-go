@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go counter counter.c -- -I./include -nostdinc -O3
@@ -11,6 +13,14 @@ import (
 func main() {
 	const SO_ATTACH_BPF = 50
 	const loopback = 1
+
+	err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &unix.Rlimit{
+		Cur: unix.RLIM_INFINITY,
+		Max: unix.RLIM_INFINITY,
+	})
+	if err != nil {
+		fmt.Println("WARNING: Failed to adjust rlimit")
+	}
 
 	specs, err := newCounterSpecs()
 	if err != nil {
